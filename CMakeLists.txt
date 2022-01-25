@@ -23,6 +23,22 @@ endif()
 set(PDE_SOLVER_SRCS
     closed_form.hpp
     closed_form.cpp
+boundary_conditions.cpp
+boundary_conditions.hpp
+Financial_PDE.cpp
+Financial_PDE.hpp
+mesh.cpp
+mesh.hpp
+payoff.cpp
+payoff.hpp
+pde_matrix_builder.cpp
+pde_matrix_builder.hpp
+rate_diffusion.cpp
+rate_diffusion.hpp
+volatility_diffusion.cpp
+volatility_diffusion.hpp
+system_solver.cpp
+system_solver.hpp
     main.cpp
 )
 
