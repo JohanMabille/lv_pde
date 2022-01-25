@@ -5,6 +5,7 @@
 #include <list>
 #include <execution>
 
+
 #include "payoff.hpp"
 #include "Financial_PDE.hpp"
 #include "boundary_conditions.hpp"
@@ -162,6 +163,7 @@ int main() {
 	bs_pde = nullptr;
 	delete payoff;
 	payoff = nullptr;
+
 
 	return 0;
 }
