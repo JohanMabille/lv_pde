@@ -1,25 +1,10 @@
 #pragma once
 
 #include <iostream>
-#include <Eigen/Dense>
+#include "eigen-3.4.0/Eigen/Dense"
 #include "pde_matrix_builder.hpp"
 #include "system_solver.hpp"
-
-/*
-Construction de la mesh:
-Passer en paramètres nb_time_steps et nb_spot_steps. Calculer dx et dt en divisant la maturité par nb_time_steps et ça donne le nombre
-de lignes en hauteur (sans compter celle au temps zéro). Pour dx diviser l'interval [log(s0)-5*SD, log(s0)+5*SD] par nb_spot_steps.
-
-Calculer les prix au temps T (à maturité):
-Just utiliser la classe payoff en prenant exp(x)
-
-Calcul des prix pendant la durée de vie de l'option:
-Juste à faire une boucle qui part des prix finaux et appelle SystemSolver pour calculer à chaque fois les prix au temps d'avant.
-
-Calculer le prix initial:
-Si mesh bien spécifiée, pas de pb on le récupère direct.
-Sinon besoin de faire une interpolation pour récupérer le prix initial (si le nb_spot_steps est impair on doit faire une interpolation).
-*/
+#include "payoff.hpp"
 
 
 class Mesh {
@@ -28,7 +13,10 @@ public:
 
 	virtual ~Mesh() = default;
 	SystemSolver* syst_solv_;
-	Mesh(SystemSolver* syst_solv, const int& nb_spot_steps, const int& nb_time_steps, const double& initial_spot);
+	Payoff* payoff_;
+
+	Mesh(SystemSolver* syst_solv, Payoff* payoff, const int& nb_spot_steps, const int& nb_time_steps, const double& initial_spot,
+		const double& K, const double& initial_vol, const double& T, const double& initial_rate, const bool& constant_coeffs, const double& eps);
 	const int& get_nb_time_steps() const;
 	const int& get_nb_spot_steps() const;
 	const double& get_initial_spot() const;
@@ -36,20 +24,40 @@ public:
 	double comp_dx() const;
 	double comp_dt() const;
 
-	Eigen::MatrixXd comp_mesh() const;
+	Eigen::MatrixXd comp_mesh(const Eigen::MatrixXd& log_spots, const bool bumped=false) const;
 
 	Eigen::MatrixXd mesh_maturity() const;
 	Eigen::MatrixXd log_spot_prices() const;
 
 	double extract_price(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots) const;
 
+	
+	double comp_delta(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots) const;
+	double comp_gamma(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots) const;
+	double comp_theta_greek(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots) const;
+	double comp_vega(const double& original_price, const Eigen::MatrixXd& log_spots) const;
+
+	double get_K() const;
+	double get_vol() const;
+	double get_T() const;
+	double get_rate() const;
+
+
 private:
 
+	bool constant_coeffs_;
+	double K_;
+	double initial_vol_;
+	double T_;
+	double initial_rate_;
 	int nb_time_steps_;
 	int nb_spot_steps_;
 	double initial_spot_;
-	
-	
+	double eps_;
+
+	double linear_interp_around_spot(const Eigen::MatrixXd& log_spots, const double& y_inf, const double& y_sup) const;
+	double delta_formula(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots, int const& position_inf, int const& position_sup) const;
+	double gamma_formula(const Eigen::MatrixXd& full_mesh, const Eigen::MatrixXd& log_spots, int const& position_inf, int const& position_sup) const;
 	
 };
 

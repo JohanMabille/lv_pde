@@ -4,129 +4,165 @@
 #include <vector>
 #include <list>
 #include <execution>
+
+
 #include "payoff.hpp"
-#include "Option.hpp"
 #include "Financial_PDE.hpp"
 #include "boundary_conditions.hpp"
 #include "pde_matrix_builder.hpp"
-#include <Eigen/Dense>
+#include "eigen-3.4.0/Eigen/Dense"
 #include "system_solver.hpp"
 #include "mesh.hpp"
 #include "closed_form.hpp"
+#include "volatility_diffusion.hpp"
+#include "rate_diffusion.hpp"
+#include "closed_form.hpp"
 
 
-void test_boundaryconditions()
+void test_pricer_greeks(double K, double initial_r, double initial_vol, double T, double theta, double nb_time_steps, double nb_spot_steps,
+	double initial_spot, double constant_coeffs, double eps, Payoff* payoff, VolatilityDiffusion* vol_diff, RateDiffusion* rate,
+	Financial_PDE* bs_pde, BoundaryConditions* bound_x0, BoundaryConditions* bound_xN, PDEMatrixBuilder* mat_build, SystemSolver* syst_solv,
+	Mesh* mesh, int option_type)
 {
+	Eigen::MatrixXd log_spots = mesh->log_spot_prices();
+	Eigen::MatrixXd mesh_prices = mesh->comp_mesh(log_spots);
 
+	// Mesh values
+	double price = mesh->extract_price(mesh_prices, log_spots);
+	std::cout << "Mesh price: " << price << std::endl;
+	double delta = mesh->comp_delta(mesh_prices, log_spots);
+	std::cout << "Mesh Delta: " << delta << std::endl;
+	double gamma = mesh->comp_gamma(mesh_prices, log_spots);
+	std::cout << "Mesh Gamma: " << gamma << std::endl;
+	double theta_greek = mesh->comp_theta_greek(mesh_prices, log_spots);
+	std::cout << "Mesh Theta: " << theta_greek << std::endl;
+	double vega = mesh->comp_vega(price, log_spots);
+	std::cout << "Mesh Vega: " << vega << std::endl;
+
+	// Closed form values
+	// CALL Option:
+	/*
+	double price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, true);
+	std::cout << "closed form price: " << price_explicit << std::endl;
+	double delta_explicit = delta_call(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form delta: " << delta_explicit << std::endl;
+	double gamma_explicit = gamma_call(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form gamma: " << gamma_explicit << std::endl;
+	double theta_explicit = theta_call(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form theta: " << theta_explicit << std::endl;
+	double vega_explicit = vega_call(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form vega: " << vega_explicit << std::endl;
+	*/
+
+	// PUT Option:
+	
+	double price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, false);
+	std::cout << "closed form price: " << price_explicit << std::endl;
+	double delta_explicit = delta_put(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form delta: " << delta_explicit << std::endl;
+	double gamma_explicit = gamma_put(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form gamma: " << gamma_explicit << std::endl;
+	double theta_explicit = theta_put(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form theta: " << theta_explicit << std::endl;
+	double vega_explicit = vega_put(initial_spot, K, initial_r, initial_vol, T);
+	std::cout << "closed form vega: " << vega_explicit << std::endl;
+	
+	
+	
+
+	// comparing the results with the two methods (error expressed in percentage):
+
+	double price_error = abs((price - price_explicit) / price_explicit);
+	std::cout << "price percentage error: " << price_error << std::endl;
+	double delta_error = abs((delta - delta_explicit) / delta_explicit);
+	std::cout << "delta percentage error: " << delta_error << std::endl;
+	double gamma_error = abs((gamma - gamma_explicit) / gamma_explicit);
+	std::cout << "gamma percentage error: " << gamma_error << std::endl;
+	double theta_error = abs((theta_greek - theta_explicit) / theta_explicit);
+	std::cout << "theta percentage error: " << theta_error << std::endl;
+	double vega_error = abs((vega - vega_explicit) / vega_explicit);
+	std::cout << "vega percentage error: " << vega_error << std::endl;
 }
 
 int main() {
-	double K = 10.0;
-	double r = 0.05;
-	double vol = 0.1;
-	double T = 1.0;
-
-	//double dx = 0.1;
-	//double dt = 0.1;
-	double theta = 0.5;
 	
-	int nb_time_steps = 252;
-	int nb_spot_steps = 90;
-	double initial_spot = 8.72;
+	//Option Parameters:
+	std::cout << "Option parameters" << std::endl;
+	double K;
+	std::cout << "please enter the strike" << std::endl;
+	std::cin >> K;
+	double initial_r;
+	std::cout << "please enter the initial interest rate" << std::endl;
+	std::cin >> initial_r;
+	double initial_vol;
+	std::cout << "please enter the initial volatility" << std::endl;
+	std::cin >> initial_vol;
+	double T;
+	std::cout << "please enter the maturity in years" << std::endl;
+	std::cin >> T;
 
-	Payoff* call_payoff = new PutPayoff(K);
-	Option* call = new VanillaOption(call_payoff, K, vol, T, r);
-	Financial_PDE* bs_pde = new BS_PDE(call);
+	//Theta scheme parameter:
+	double theta;
+	std::cout << "please enter the parameter of the Theta scheme (between zero and one)" << std::endl;
+	std::cin >> theta;
 
+	// Mesh parameters:
+	std::cout << "Mesh parameters" << std::endl;
+	int nb_time_steps;
+	std::cout << "please enter the number of time steps in the mesh" << std::endl;
+	std::cin >> nb_time_steps;
+	int nb_spot_steps;
+	std::cout << "please enter the number of spot steps in the mesh" << std::endl;
+	std::cin >> nb_spot_steps;
+	double initial_spot;
+	std::cout << "please enter the spot price" << std::endl;
+	std::cin >> initial_spot;
+
+	int option_type;
+	std::cout << "Enter 0 if the option is a Put, enter 1 if it's a call" << std::endl;
+	std::cin >> option_type;
+
+	double constant_coeffs;
+	std::cout << "if the model uses constant diffusion coefficients enter true, else enter false" << std::endl;
+	std::cin >>constant_coeffs;
+
+	double eps = 0.001;
+
+	
+	Payoff* payoff;
+	if (option_type == 1)
+	{
+		payoff = new CallPayoff(K);
+	}
+	else
+	{
+		payoff = new PutPayoff(K);
+	}
+		
+	VolatilityDiffusion* vol_diff = new ConstantVolatility();
+	RateDiffusion* rate_diff = new ConstantRate();
+	Financial_PDE* bs_pde = new BS_PDE(vol_diff, rate_diff);
 	BoundaryConditions* bound_x0 = new Boundaryx0(bs_pde, theta);
 	BoundaryConditions* bound_xN = new BoundaryxN(bs_pde, theta);
-
-	// Problème pour créer un objet de type PDEMatrixBuilder... Tout le reste au-dessus marche bien...
-
 	PDEMatrixBuilder* mat_build = new PDEMatrixBuilder(bound_x0, bound_xN);
-
-	// TEST FOR MATRIX COMPUTATION
-
-	/*
-	Eigen::MatrixXd k = mat_build->comp_k();
-	std::cout << k << std::endl;
-
-	Eigen::MatrixXd ktilde = mat_build->comp_ktilde();
-	std::cout << ktilde << std::endl;
-
-	Eigen::MatrixXd fn1 = Eigen::MatrixXd::Random(nb_time_steps + 1, 1);
-	Eigen::MatrixXd fn = syst_solv->get_fn(fn1);
-
-	std::cout << fn1 << std::endl;
-	std::cout << fn << std::endl;
-
-	*/
-
 	SystemSolver* syst_solv = new SystemSolver(mat_build);
-	Mesh* mesh = new Mesh(syst_solv, nb_spot_steps, nb_time_steps, initial_spot);
+	Mesh* mesh = new Mesh(syst_solv, payoff, nb_spot_steps, nb_time_steps, initial_spot, K, initial_vol, T, initial_r, constant_coeffs, eps);
 
-	Eigen::MatrixXd log_spots = mesh->log_spot_prices();
-	Eigen::MatrixXd mesh_prices = mesh->comp_mesh();
-	//std::cout << mesh_prices << std::endl;
-	double price = mesh->extract_price(mesh_prices, log_spots);
-	std::cout << mesh_prices << std::endl;
-	std::cout << price << std::endl;
-	/*
-	double delta = mesh->comp_delta(mesh_prices, log_spots);
-	std::cout << delta << std::endl;
-	double gamma = mesh->comp_gamma(mesh_prices, log_spots, price);
-	std::cout << gamma << std::endl;
-	*/
+	test_pricer_greeks(K, initial_r, initial_vol, T, theta, nb_time_steps, nb_spot_steps, initial_spot, constant_coeffs, eps, payoff, vol_diff,
+		rate_diff, bs_pde, bound_x0, bound_xN, mat_build, syst_solv, mesh, option_type);
 
-
-	// RAJOUTER LES DELETE POINTEURS!
 	delete mesh;
-	mesh = NULL;
+	mesh = nullptr;
 	delete mat_build;
-	mat_build = NULL;
+	mat_build = nullptr;
 	delete bound_xN;
-	bound_xN = NULL;
+	bound_xN = nullptr;
 	delete bound_x0;
-	bound_x0 = NULL;
+	bound_x0 = nullptr;
 	delete bs_pde;
-	bs_pde = NULL;
-	delete call;
-	call = NULL;
-	delete call_payoff;
-	call_payoff = NULL;
-
-
-
-
-
-	//double closed_form_price = bs_price()
-
-
-
-
-
-
-	//Eigen::MatrixXd result_mesh = mesh->comp_mesh();
-	//Eigen::MatrixXd res = Eigen::MatrixXd::Zero(nb_time_steps + 1, nb_spot_steps + 1);
-
-	//res.row(0) = mesh->mesh_maturity();
-	//Eigen::MatrixXd fn1 = Eigen::MatrixXd::Zero(nb_spot_steps +1, 1);
-
-
-	/*
-	Eigen::MatrixXd log_spots = mesh->log_spot_prices();
-	Eigen::MatrixXd res = Eigen::MatrixXd::Zero(1, nb_spot_steps + 1);
-	for (int i = 0; i <= nb_spot_steps; i++)
-	{
-		double log_spot = log_spots(0, i);
-		std::cout << log_spot << std::endl;
-		res(0, i) = syst_solv->mat_build_->boundaries_x0_->pde_->Opt_->m_payoff->operator()(exp(log_spot));
-		std::cout << res(0,i) << std::endl;
-	}
-
-	*/
-
-
+	bs_pde = nullptr;
+	delete payoff;
+	payoff = nullptr;
 
 
 	return 0;
