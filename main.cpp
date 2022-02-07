@@ -39,34 +39,38 @@ void test_pricer_greeks(double K, double initial_r, double initial_vol, double T
 	double vega = mesh->comp_vega(price, log_spots);
 	std::cout << "Mesh Vega: " << vega << std::endl;
 
+        // If you provide the possibility to price a call or a put, you should handle it
+        // here too.
+        double price_explicit, delta_explicit, gamma_explicit, theta_explicit, vega_explicit;
 	// Closed form values
 	// CALL Option:
-	/*
-	double price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, true);
-	std::cout << "closed form price: " << price_explicit << std::endl;
-	double delta_explicit = delta_call(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form delta: " << delta_explicit << std::endl;
-	double gamma_explicit = gamma_call(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form gamma: " << gamma_explicit << std::endl;
-	double theta_explicit = theta_call(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form theta: " << theta_explicit << std::endl;
-	double vega_explicit = vega_call(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form vega: " << vega_explicit << std::endl;
-	*/
-
+	if (option_type == 1)
+        {
+            price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, true);
+            std::cout << "closed form price: " << price_explicit << std::endl;
+            delta_explicit = delta_call(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form delta: " << delta_explicit << std::endl;
+            gamma_explicit = gamma_call(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form gamma: " << gamma_explicit << std::endl;
+            theta_explicit = theta_call(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form theta: " << theta_explicit << std::endl;
+            vega_explicit = vega_call(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form vega: " << vega_explicit << std::endl;
+        }
 	// PUT Option:
-	
-	double price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, false);
-	std::cout << "closed form price: " << price_explicit << std::endl;
-	double delta_explicit = delta_put(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form delta: " << delta_explicit << std::endl;
-	double gamma_explicit = gamma_put(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form gamma: " << gamma_explicit << std::endl;
-	double theta_explicit = theta_put(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form theta: " << theta_explicit << std::endl;
-	double vega_explicit = vega_put(initial_spot, K, initial_r, initial_vol, T);
-	std::cout << "closed form vega: " << vega_explicit << std::endl;
-	
+        else
+        {
+            price_explicit = bs_price(initial_spot * exp(initial_r * T), K, initial_vol, T, false);
+            std::cout << "closed form price: " << price_explicit << std::endl;
+            delta_explicit = delta_put(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form delta: " << delta_explicit << std::endl;
+            gamma_explicit = gamma_put(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form gamma: " << gamma_explicit << std::endl;
+            theta_explicit = theta_put(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form theta: " << theta_explicit << std::endl;
+            vega_explicit = vega_put(initial_spot, K, initial_r, initial_vol, T);
+            std::cout << "closed form vega: " << vega_explicit << std::endl;
+        }
 	
 	
 
@@ -87,7 +91,7 @@ void test_pricer_greeks(double K, double initial_r, double initial_vol, double T
 int main() {
 	
 	//Option Parameters:
-	std::cout << "Option parameters" << std::endl;
+	/*std::cout << "Option parameters" << std::endl;
 	double K;
 	std::cout << "please enter the strike" << std::endl;
 	std::cin >> K;
@@ -122,10 +126,25 @@ int main() {
 	std::cout << "Enter 0 if the option is a Put, enter 1 if it's a call" << std::endl;
 	std::cin >> option_type;
 
+        // This is WRONG: you don't capture boolean values with strings that you store in double
+        // The result will never be what you expect
 	double constant_coeffs;
 	std::cout << "if the model uses constant diffusion coefficients enter true, else enter false" << std::endl;
-	std::cin >>constant_coeffs;
+	std::cin >>constant_coeffs;*/
 
+        double K = 150.;
+        double initial_spot = 100.;
+        double initial_r = 0.0;
+        double initial_vol = 0.2;
+        double T = 1.;
+        double theta = 0.5;
+        int nb_time_steps = 365;
+        int nb_spot_steps = 501;
+        int option_type = 1;
+        // pricing with constant_coeffs = false never completes...
+        bool constant_coeffs = true;
+
+        std::cout << "constant_coeffs = " << constant_coeffs << std::endl;
 	double eps = 0.001;
 
 	
@@ -138,7 +157,10 @@ int main() {
 	{
 		payoff = new PutPayoff(K);
 	}
-		
+	
+        // Dynamic allocation is not required here, you could allocate on the stack
+        // and pass the objects by reference to test_pricer_greeks (so that polymorphism
+        // works as expected)
 	VolatilityDiffusion* vol_diff = new ConstantVolatility();
 	RateDiffusion* rate_diff = new ConstantRate();
 	Financial_PDE* bs_pde = new BS_PDE(vol_diff, rate_diff);
@@ -153,8 +175,10 @@ int main() {
 
 	delete mesh;
 	mesh = nullptr;
+        // Where do you delete syst_solv?
 	delete mat_build;
 	mat_build = nullptr;
+        // The following leads to a crash
 	delete bound_xN;
 	bound_xN = nullptr;
 	delete bound_x0;

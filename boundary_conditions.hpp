@@ -9,8 +9,10 @@ class BoundaryConditions
 public:
 	virtual ~BoundaryConditions() = default;
 
+        // missing deleted copy and move semantics
 	Financial_PDE* pde_;
 
+        // double can be passed and return by value, this won't hurt performance
 	const double& get_theta() const;
 	virtual Eigen::MatrixXd coeff_fn(const double& dx, const double& dt, const double& x, const double& t,
 		const double& initial_vol, const double& initial_rate) const = 0;

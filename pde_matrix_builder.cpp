@@ -8,6 +8,7 @@
 
 PDEMatrixBuilder::~PDEMatrixBuilder()
 {
+    // Double deletion with main function
 	delete boundaries_xN_;
 	boundaries_xN_ = nullptr;
 	delete boundaries_x0_;
